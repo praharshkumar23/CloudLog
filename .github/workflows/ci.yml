@@ -1,0 +1,22 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build is in sync with src/
+        run: node build.js --check
+      - name: Rule regression
+        run: node tests/rule_regression.js index.html
+      - name: Web Worker parity
+        run: node tests/worker_test.js index.html
+      - name: Detection smoke
+        run: node tests/detection_smoke.js index.html
+      - name: Accuracy eval (optional)
+        run: node tests/accuracy_eval.js index.html
