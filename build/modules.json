@@ -1,0 +1,16 @@
+[
+  "01-core-utils.js",
+  "02-severity-stages.js",
+  "03-source-normalizers.js",
+  "04-detection-rules.js",
+  "05-state-and-prefs.js",
+  "06-render.js",
+  "07-investigation.js",
+  "08-hunt.js",
+  "09-tabs-and-fileio.js",
+  "10-analyst-and-ai.js",
+  "11-iocs-and-enrichment.js",
+  "12-correlation-and-parsers.js",
+  "13-decisions-and-cases.js",
+  "14-auth-and-crypto.js"
+]

@@ -1,0 +1,17 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Node (only needed if you run the optional proxy / tests)
+node_modules/
+npm-debug.log*
+.env
+
+# CloudLog runtime / user data — never commit real logs or saved cases
+*.clenc
+cloudlog-case-*.json
+uploads/
+sample-private/

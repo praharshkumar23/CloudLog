@@ -1,0 +1,1057 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cloud Log Dashboard</title>
+<style>
+
+:root {
+  --bg: #f5f6fb; --card: #ffffff; --border: #e6e8f0; --text: #12141f; --muted: #7c8298;
+  --accent: #5b4ef0; --accent-2: #4f8cff; --accent-soft: #eeecfe; --signal: #22d3ee;
+  --ink: #0c1024;
+  --success: #12b76a; --warn: #f0a83a; --danger: #e0454f; --danger-soft: #fdeced;
+  --radius-lg: 16px; --shadow: 0 1px 2px rgba(12,16,36,.05), 0 6px 20px rgba(12,16,36,.06);
+}
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font-family:"Inter",-apple-system,"Segoe UI",Roboto,system-ui,sans-serif; font-size:14px; -webkit-font-smoothing:antialiased; }
+h1,h2,h3,.logo-name { letter-spacing:-.02em; }
+.app { display:grid; grid-template-columns:240px 1fr; min-height:100vh; }
+.sidenav { background:linear-gradient(180deg,#0c1024,#131734); color:#cfd3e6; padding:22px 18px; display:flex; flex-direction:column; gap:22px; border-right:1px solid rgba(34,211,238,.12); }
+.logo { display:flex; align-items:center; gap:11px; }
+.logo-name { font-size:17px; font-weight:800; color:#fff; line-height:1; }
+.logo-sub { font-size:10.5px; color:#7f86ad; margin-top:3px; letter-spacing:.02em; text-transform:uppercase; }
+.logo-mark { width:36px; height:36px; border-radius:10px; background:rgba(34,211,238,.08); border:1px solid rgba(34,211,238,.22); display:flex; align-items:center; justify-content:center; }
+.logo-text { font-weight:700; font-size:16px; color:#fff; }
+.nav-label { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:#6b6f89; margin-bottom:10px; }
+.nav-section { display:flex; flex-direction:column; gap:4px; }
+.nav-source { display:flex; align-items:center; gap:10px; background:transparent; border:1px solid rgba(255,255,255,.08); border-radius:8px; padding:8px 10px; color:#d6d8e6; font-size:12.5px; cursor:pointer; text-align:left; font-family:inherit; }
+.nav-source:hover { border-color:var(--signal); background:rgba(34,211,238,.10); }
+.dot { width:8px; height:8px; border-radius:50%; display:inline-block; flex-shrink:0; }
+.dot-aws{background:#f0a83a;} .dot-azure{background:#2fc0ce;} .dot-okta{background:#4f8cff;}
+.dot-gcp{background:#ea4335;} .dot-win{background:#00a4ef;} .dot-generic{background:#8a8fa3;}
+.dot-gd{background:#e0454f;} .dot-apache{background:#d97706;}
+.nav-footer { margin-top:auto; }
+.small { font-size:11px; }
+.muted { color:var(--muted); }
+.main { padding:26px 30px; overflow-x:hidden; }
+.topbar { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px; }
+.topbar h1 { margin:0 0 4px; font-size:22px; }
+.topbar-actions { display:flex; gap:10px; align-items:center; }
+.btn { border-radius:9px; padding:10px 16px; font-size:13px; font-weight:600; cursor:pointer; border:1px solid transparent; }
+.btn-primary { background:var(--accent); color:#fff; }
+.btn-outline { background:#fff; border:1px solid var(--border); color:var(--text); }
+input[type=file] { display:none; }
+.metrics { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:20px; }
+.hidden { display:none !important; }
+.summary-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
+.summary-block { background:#f8f9fc; border:1px solid #e6e8f0; border-radius:10px; padding:16px; }
+.summary-block h3 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:#666; margin:0 0 10px; }
+.summary-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #eee; font-size:13.5px; }
+.summary-row:last-child { border-bottom:none; }
+.summary-row span:first-child { color:#666; }
+.summary-row span:last-child { font-weight:600; }
+.summary-list { list-style:none; margin:0; padding:0; }
+.summary-list li { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #eee; font-size:13.5px; }
+.summary-list li:last-child { border-bottom:none; }
+.summary-badge { padding:2px 8px; border-radius:6px; font-size:11.5px; font-weight:700; }
+.summary-badge.high { background:#fde2e2; color:#b91c1c; }
+.summary-badge.medium { background:#fef3c7; color:#92400e; }
+.summary-badge.low { background:#dcfce7; color:#166534; }
+@media (max-width:900px) { .summary-grid{grid-template-columns:1fr;} }
+.metric-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:14px 16px; box-shadow:var(--shadow); }
+.metric-card.danger { border-color:#f4c7ca; }
+.metric-label { display:block; font-size:11.5px; color:var(--muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:.04em; }
+.metric-value { font-size:22px; font-weight:800; }
+.small-value { font-size:14px; font-weight:700; }
+.tabs { display:flex; gap:6px; border-bottom:1px solid var(--border); margin-bottom:18px; }
+.tab { padding:10px 16px; font-size:13.5px; font-weight:600; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; }
+.tab:hover { color:var(--text); }
+.tab.active { color:var(--accent); border-color:var(--accent); background:var(--accent-soft); border-radius:8px 8px 0 0; }
+.tab-panel { display:none; }
+.tab-panel.active { display:block; }
+.content-grid { display:grid; grid-template-columns:1.6fr 1fr; gap:16px; }
+.card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px; box-shadow:var(--shadow); }
+.card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px; }
+.card-header h2 { margin:0; font-size:15.5px; }
+.search-box input { border:1px solid var(--border); border-radius:8px; padding:8px 12px; font-size:12.5px; width:220px; }
+.table-wrap { max-height:520px; overflow:auto; }
+table { width:100%; border-collapse:collapse; font-size:12.8px; }
+th { text-align:left; color:var(--muted); font-weight:600; padding:8px 10px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--card); }
+td { padding:8px 10px; border-bottom:1px solid #f1f2f6; vertical-align:top; }
+tr[data-i] { cursor:pointer; }
+tr[data-i]:hover { background:#faf9ff; }
+.empty-row td { color:var(--muted); text-align:center; padding:30px 0; }
+.source-tag { background:var(--accent-soft); color:var(--accent); padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; }
+.details-card pre#details { white-space:pre-wrap; word-break:break-word; font-size:12px; max-height:520px; overflow:auto; background:#0f1020; color:#d7d9f5; padding:14px; border-radius:10px; }
+.detection-item { border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:12px; }
+.detection-top { display:flex; justify-content:space-between; align-items:center; }
+.detection-title { font-weight:700; font-size:14px; }
+.sev { padding:3px 10px; border-radius:999px; font-size:11px; font-weight:800; text-transform:uppercase; }
+.sev-high { background:var(--danger-soft); color:var(--danger); }
+.sev-medium { background:#fff4e0; color:var(--warn); }
+.sev-low { background:#e9f9ef; color:var(--success); }
+.mitre-tag { display:inline-block; margin-top:6px; font-size:11px; font-weight:700; color:#5b50d6; background:var(--accent-soft); padding:2px 8px; border-radius:6px; }
+.detection-desc { font-size:12.8px; color:#333; margin:8px 0; }
+.suggestion-box { background:#f7f8fc; border-left:3px solid var(--accent); padding:8px 12px; font-size:12.5px; border-radius:6px; }
+.detection-toggle { }
+.empty-note { color:var(--muted); font-size:13px; }
+.chain-item { display:flex; gap:12px; padding:10px 0; border-bottom:1px solid #f1f2f6; }
+.chain-dot { width:10px; height:10px; border-radius:50%; background:var(--accent); margin-top:4px; flex-shrink:0; }
+.chain-body { display:flex; flex-direction:column; gap:2px; }
+.modern-chain { display:grid; gap:12px; }
+.node-card { background:#fff; border:1px solid #e6e8f0; border-left:4px solid #6d5ff0; border-radius:12px; padding:14px; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,0.04); }
+.node-top { display:flex; justify-content:space-between; font-size:12px; color:#666; margin-bottom:8px; }
+.node-source { background:#eef2ff; color:#5b50d6; padding:2px 8px; border-radius:999px; font-weight:700; }
+.node-main { font-size:15px; font-weight:700; margin-bottom:6px; }
+.node-meta { font-size:12.5px; color:#666; margin-bottom:8px; }
+.node-tags { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.node-stage { margin-top:8px; font-size:12px; font-weight:800; color:#0f766e; }
+.node-tag { background:#f3f4f6; border-radius:999px; padding:3px 8px; font-size:11px; font-weight:700; }
+.indicator-box { margin-top:8px; background:#f8fafc; border:1px dashed #dbe2f0; border-radius:10px; padding:10px; font-size:12px; color:#4b5563; display:grid; gap:4px; }
+.chain-summary { margin-top:12px; padding:12px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; color:#4b5563; font-size:13px; }
+.eg-rel{display:inline-block;background:var(--accent-soft);color:var(--accent);border-radius:4px;padding:0 5px;font-size:11px;font-weight:700;font-family:Consolas,monospace;}
+.eg-info{font-size:12.5px;color:#4b5563;background:#f8f9fc;border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:10px;}
+.eg-node text{pointer-events:none;user-select:none;}
+.eg-node circle,.eg-edge{transition:opacity .15s;}
+.map-wrap { overflow:auto; border:1px solid var(--border); border-radius:12px; background:#fbfbfe; }
+.map-legend { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; font-size:11.5px; }
+.map-legend-item { display:flex; align-items:center; gap:6px; }
+.map-legend-dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+
+/* ---- AI Analyst ---- */
+.ai-report{display:flex;flex-direction:column;gap:18px;}
+.ai-verdict{display:flex;align-items:center;gap:20px;padding:16px 18px;background:#f8f9fc;border:1px solid var(--border);border-radius:12px;}
+.ai-gauge{width:84px;height:84px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:conic-gradient(var(--accent) calc(var(--p,0)*1%),#e7e9f0 0);flex-shrink:0;position:relative;}
+.ai-gauge::after{content:"";position:absolute;inset:8px;background:#fff;border-radius:50%;}
+.ai-gauge-num{font-size:24px;font-weight:800;z-index:1;}
+.ai-gauge-lbl{font-size:9px;letter-spacing:.08em;color:var(--muted);z-index:1;}
+.ai-h{font-size:12.5px;text-transform:uppercase;letter-spacing:.05em;color:#666;margin:0 0 8px;}
+.ai-narr{font-size:13.8px;line-height:1.65;margin:0;color:var(--text);}
+.ai-cols{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.ai-filter{display:flex;gap:8px;margin:6px 0 8px;flex-wrap:wrap;}
+.ai-filter select,.ai-filter input{border:1px solid var(--border);border-radius:6px;padding:6px 9px;font-size:12.5px;font-family:inherit;}
+.ai-filter input{flex:1;min-width:140px;}
+.ai-list{list-style:none;margin:0;padding:0;}
+.ai-list li{padding:8px 0;border-bottom:1px solid #f0f1f5;font-size:13px;line-height:1.5;}
+.ai-list li:last-child{border-bottom:none;}
+.ai-ents{display:flex;gap:28px;flex-wrap:wrap;}
+.ai-ent h4{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 8px;}
+.ai-chip{display:inline-block;background:var(--accent-soft);color:var(--accent);border-radius:20px;padding:4px 10px;font-size:12px;margin:0 6px 6px 0;}
+.ai-chip b{color:var(--accent);}
+.ai-caveat{font-size:12px;color:var(--muted);background:#fff9ec;border:1px solid #f4e2b8;border-radius:8px;padding:10px 12px;margin:0;}
+.ai-cloud{margin-top:20px;border-top:1px dashed var(--border);padding-top:18px;}
+.ai-privacy{background:#eef7f0;border:1px solid #cfe9d6;color:#166534;border-radius:10px;padding:10px 14px;font-size:12.5px;margin-bottom:14px;}
+.ai-privacy b{color:#0f5132;}
+.ai-field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
+.ai-field label{font-size:11.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
+.ai-field input,.ai-field select,.ai-field textarea{border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;width:100%;}
+.ai-field textarea{min-height:64px;resize:vertical;}
+.ai-field input:focus,.ai-field textarea:focus,.ai-field select:focus{outline:none;border-color:var(--accent);}
+.ai-preview-toggle{font-size:12.5px;color:var(--accent);cursor:pointer;font-weight:600;margin-bottom:8px;display:inline-block;}
+#aiPayloadPreview{font-family:"Consolas","Courier New",monospace;font-size:11.5px;background:#14162b;color:#d6d8e6;border-radius:10px;padding:14px;max-height:260px;overflow:auto;white-space:pre-wrap;margin:0 0 12px;}
+#aiAnswer{background:#f8f9fc;border:1px solid var(--border);border-radius:10px;padding:14px;font-size:13.5px;line-height:1.6;min-height:44px;}
+.ai-answer-body{color:var(--text);}
+@media (max-width:900px){.ai-cols{grid-template-columns:1fr;}}
+
+/* ---- Investigate / IOC / enrichment ---- */
+.ioc-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+.ioc-toolbar select{border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12.5px;font-family:inherit;}
+.keys-panel{background:#f8f9fc;border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12.5px;}
+.keys-panel summary{cursor:pointer;font-weight:600;}
+.keys-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:8px;}
+.keys-grid input{border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-size:12px;font-family:inherit;}
+.proxy-status{font-size:12.5px;background:#f8f9fc;border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:14px;}
+.proxy-status code{background:#14162b;color:#9fe6a0;padding:1px 6px;border-radius:4px;font-size:11.5px;}
+.rule-builder{background:#f8f9fc;border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:14px;}
+.intel-block{margin:12px 0;padding-top:10px;border-top:1px solid #eef0f5;}
+.intel-label{font-size:12px;font-weight:600;color:#4b5563;display:block;margin-bottom:5px;}
+.intel-ta{width:100%;min-height:70px;border:1px solid var(--border);border-radius:6px;padding:8px;font-size:12px;font-family:Consolas,monospace;resize:vertical;}
+.intel-row{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;}
+.intel-file{padding:6px 12px;font-size:12px;}
+.rule-builder summary{cursor:pointer;font-weight:600;font-size:13px;}
+.rule-grid{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;}
+.rule-grid input[type=text]{border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-size:12.5px;font-family:inherit;flex:1;min-width:140px;}
+.rule-grid select{border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-size:12.5px;}
+.rule-chk{font-size:12.5px;display:inline-flex;align-items:center;gap:4px;}
+.cr-item{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:4px 0;border-bottom:1px solid #eef0f5;}
+.cr-item button{background:none;border:none;color:#dc2626;cursor:pointer;font-size:12px;}
+.decision-card{border-radius:10px;padding:12px 14px;margin-bottom:12px;border:1px solid var(--border);border-left-width:5px;background:#fbfcfe;}
+.decision-card.dc-p1{border-left-color:#dc2626;background:#fef4f4;}
+.decision-card.dc-p2{border-left-color:#f59e0b;background:#fffaf2;}
+.decision-card.dc-p3{border-left-color:#3b82f6;background:#f5f9ff;}
+.decision-card.dc-ig{border-left-color:#9ca3af;}
+.dc-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:6px;}
+.dc-pri{font-weight:800;font-size:14px;padding:2px 10px;border-radius:6px;color:#fff;}
+.dc-pri.dc-p1{background:#dc2626;}.dc-pri.dc-p2{background:#f59e0b;}.dc-pri.dc-p3{background:#3b82f6;}.dc-pri.dc-ig{background:#9ca3af;}
+.dc-metric{font-size:12.5px;color:#4b5563;}.dc-metric b{color:var(--text);font-size:14px;}
+.dc-action{font-weight:700;font-size:13px;color:var(--text);}
+.dc-scenario{font-size:13px;margin:4px 0;padding:5px 8px;background:#eef4ff;border-radius:6px;color:#1e3a8a;}
+.dc-counter{font-size:12.5px;color:#166534;margin-bottom:4px;background:#f0fdf4;padding:4px 8px;border-radius:6px;}
+.conf-bd{font-size:12px;margin-top:6px;}
+.conf-row{padding:2px 0;border-bottom:1px solid #f3f4f6;}
+.cp-pos{color:#166534;font-weight:700;display:inline-block;min-width:34px;}
+.cp-neg{color:#dc2626;font-weight:700;display:inline-block;min-width:34px;}
+.conf-total{font-weight:700;border-top:1px solid var(--border);margin-top:3px;padding-top:4px;}
+.dc-note{margin:6px 0;}
+.note-input{width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 9px;font-size:12.5px;font-family:inherit;}
+.dc-linked{font-size:12px;color:#6b7280;margin-bottom:4px;}
+.case-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--border);}
+.case-id{font-weight:800;font-size:12px;color:var(--accent);background:var(--accent-soft);padding:2px 8px;border-radius:6px;letter-spacing:.02em;}
+.case-status,.case-owner{border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit;}
+.case-owner{width:110px;}
+.case-merge{font-size:12px;display:inline-flex;align-items:center;gap:4px;color:#6b7280;}
+.case-tl{margin:6px 0 0;padding-left:18px;font-size:12.3px;line-height:1.6;}
+.case-tl li{margin-bottom:2px;}
+.case-pill{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 10px;border-radius:20px;margin-right:6px;background:#eef0f5;color:#4b5563;}
+.case-pill.cs-new{background:#eef;color:#4338ca;}
+.case-pill.cs-investigating{background:#fef3c7;color:#92400e;}
+.case-pill.cs-escalated{background:#fde2e2;color:#b91c1c;}
+.case-pill.cs-contained{background:#e0f2fe;color:#0369a1;}
+.case-pill.cs-closed{background:#dcfce7;color:#166534;}
+.dc-verdict{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:6px 0;}
+.vbtn{border:1px solid var(--border);background:#fff;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;}
+.vbtn:hover{background:#f3f4f6;}
+.vbtn.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+.vlabel{font-size:12px;font-weight:700;color:var(--accent);}
+.help-panel{background:#f8f9fc;border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:14px;}
+.help-panel summary{cursor:pointer;font-weight:700;font-size:13px;}
+.help-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:10px;font-size:12.3px;line-height:1.5;color:#4b5563;}
+.help-grid b{color:var(--text);}
+.funnel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:linear-gradient(135deg,#0c1024,#1b2150);color:#fff;border-radius:12px;padding:14px 16px;margin-bottom:14px;}
+.fn-step{text-align:center;min-width:64px;}
+.fn-num{font-size:20px;font-weight:800;letter-spacing:-.02em;}
+.fn-lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:#9aa0c6;}
+.fn-final .fn-num{color:#22d3ee;}
+.fn-arrow{color:#5a6099;font-size:16px;}
+.fn-save{margin-left:auto;text-align:right;}
+.fn-save b{font-size:22px;color:#34d399;display:block;line-height:1;}
+.fn-save span{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:#9aa0c6;}
+.entity-risk{margin-bottom:16px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:#fff;}
+.entity-risk h3{margin:0 0 8px;font-size:14px;}
+.er-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+.er-table th{text-align:left;color:#666;font-size:11px;text-transform:uppercase;padding:5px 8px;border-bottom:1px solid var(--border);}
+.er-table td{padding:6px 8px;border-bottom:1px solid #f0f1f4;vertical-align:top;}
+.er-badge{display:inline-block;min-width:26px;text-align:center;padding:2px 6px;border-radius:6px;font-weight:800;color:#fff;}
+.er-badge.dc-p1{background:#dc2626;}.er-badge.dc-p2{background:#f59e0b;}.er-badge.dc-p3{background:#3b82f6;}
+.dc-why{font-size:12.5px;color:#4b5563;margin-bottom:4px;}
+.dc-steps summary{font-size:12.5px;color:var(--accent);cursor:pointer;font-weight:600;}
+.dc-steps ol{margin:6px 0 0;padding-left:20px;font-size:12.8px;line-height:1.6;}
+.chain-card{border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:12px;background:#fff;}
+.chain-card-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;}
+.chain-stages{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
+.stage-pill{background:var(--accent-soft);color:var(--accent);border-radius:20px;padding:3px 10px;font-size:11.5px;font-weight:700;}
+.arrow{color:var(--muted);font-weight:700;}
+.chain-ent{display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:#4b5563;}
+.chain-ent b{color:var(--text);}
+.ioc-table{width:100%;border-collapse:collapse;font-size:12.8px;}
+.ioc-table th{text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:9px 10px;border-bottom:1px solid var(--border);}
+.ioc-table td{padding:9px 10px;border-bottom:1px solid #f0f1f5;vertical-align:top;}
+.ioc-val{font-family:"Consolas","Courier New",monospace;font-size:12px;word-break:break-all;max-width:340px;}
+.ip-class{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;background:#eef0f5;color:#666;margin-left:4px;text-transform:uppercase;}
+.ip-class.ip-public{background:#fdeced;color:#b91c1c;}
+.ip-class.ip-private,.ip-class.ip-loopback,.ip-class.ip-linklocal,.ip-class.ip-cgnat,.ip-class.ip-reserved{background:#e7f8ef;color:#166534;}
+.enrich-cell{min-width:220px;}
+.verdict{font-size:12px;padding:3px 8px;border-radius:6px;margin-bottom:3px;}
+.verdict-bad{background:#fdeced;color:#b91c1c;}
+.verdict-ok{background:#f1f5f9;color:#475569;}
+.deeplinks{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px;}
+.dl{font-size:11.5px;color:var(--accent);text-decoration:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;}
+.dl:hover{border-color:var(--accent);background:var(--accent-soft);}
+
+
+/* ============================================================================
+   CYBER THEME OVERRIDE — "midnight telemetry / operator console"
+   Appended last so these rules win over the base light theme.
+   ========================================================================== */
+:root{
+  --bg:#05070f; --bg2:#0a0e1c; --card:#0d1322; --card2:#111a2e;
+  --border:#1a2540; --border2:#243357;
+  --text:#e7ecff; --muted:#828fb5; --dim:#5a6488;
+  --ink:#e7ecff;
+  --accent:#7c6cff; --accent-2:#4f8cff; --accent-soft:rgba(124,108,255,.14);
+  --signal:#2fe6e0; --signal-soft:rgba(47,230,224,.10);
+  --success:#3ce0a0; --warn:#ffb454; --danger:#ff4d6d; --danger-soft:rgba(255,77,109,.14);
+  --radius-lg:14px;
+  --shadow:0 1px 0 rgba(255,255,255,.02), 0 10px 30px rgba(0,0,0,.45);
+  --mono:ui-monospace,"JetBrains Mono","SF Mono","Cascadia Code",Consolas,monospace;
+  --glow-signal:0 0 0 1px rgba(47,230,224,.35), 0 0 18px rgba(47,230,224,.25);
+}
+body{ background:var(--bg); color:var(--text); }
+/* ambient telemetry background: drifting grid + slow radar sweep */
+body::before{
+  content:""; position:fixed; inset:0; z-index:-2; pointer-events:none;
+  background:
+    linear-gradient(rgba(47,230,224,.035) 1px, transparent 1px) 0 0/44px 44px,
+    linear-gradient(90deg, rgba(124,108,255,.035) 1px, transparent 1px) 0 0/44px 44px,
+    radial-gradient(1200px 700px at 78% -8%, rgba(124,108,255,.10), transparent 60%),
+    radial-gradient(900px 600px at 10% 110%, rgba(47,230,224,.07), transparent 60%);
+}
+@keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
+
+/* sidebar */
+.app{ background:transparent; }
+.sidenav{ background:linear-gradient(180deg,rgba(10,14,28,.92),rgba(7,10,20,.96)); border-right:1px solid var(--border2); backdrop-filter:blur(6px); }
+.logo-mark{ background:var(--signal-soft); border:1px solid rgba(47,230,224,.35); box-shadow:var(--glow-signal); }
+.logo-name{ color:#fff; }
+.nav-source{ border-color:var(--border2); color:#c3cbe6; transition:.16s; }
+.nav-source:hover{ border-color:var(--signal); background:var(--signal-soft); box-shadow:var(--glow-signal); transform:translateX(2px); }
+
+/* topbar + live engine status */
+.main{ position:relative; }
+.topbar h1{ font-weight:800; letter-spacing:-.02em; }
+.eng-status{ display:inline-flex; align-items:center; gap:8px; font-family:var(--mono); font-size:11px; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--signal); background:var(--signal-soft); border:1px solid rgba(47,230,224,.30);
+  border-radius:999px; padding:6px 12px; box-shadow:var(--glow-signal); position:relative; overflow:hidden; }
+.eng-status .pip{ width:8px; height:8px; border-radius:50%; background:var(--signal); box-shadow:0 0 10px var(--signal); animation:pulse 1.8s ease-in-out infinite; }
+
+/* metric cards — glassy, mono numerals, scanline */
+.metric-card{ background:linear-gradient(180deg,var(--card2),var(--card)); border:1px solid var(--border2); border-radius:var(--radius-lg);
+  box-shadow:var(--shadow); position:relative; overflow:hidden; transition:.18s; }
+.metric-card::after{ content:""; position:absolute; left:0; right:0; top:0; height:1px;
+  background:linear-gradient(90deg,transparent,var(--signal),transparent); opacity:.4; }
+.metric-card:hover{ border-color:var(--accent); box-shadow:0 0 0 1px rgba(124,108,255,.4), 0 12px 34px rgba(0,0,0,.5); transform:translateY(-2px); }
+.metric-card.danger{ border-color:rgba(255,77,109,.4); }
+.metric-label{ color:var(--muted); }
+.metric-value,.small-value{ font-family:var(--mono); font-variant-numeric:tabular-nums; color:#fff; text-shadow:0 0 18px rgba(124,108,255,.25); }
+
+/* tabs — sliding glow underline */
+.tabs{ border-bottom:1px solid var(--border2); gap:2px; }
+.tab{ color:var(--muted); border-radius:8px 8px 0 0; transition:.16s; }
+.tab:hover{ color:var(--text); background:rgba(124,108,255,.06); }
+.tab.active{ color:#fff; background:var(--accent-soft); border-color:var(--accent);
+  box-shadow:inset 0 -2px 0 var(--accent), 0 0 18px rgba(124,108,255,.25); }
+
+/* cards / panels */
+.card,.summary-block,.keys-panel,.eg-info,.chain-summary,.indicator-box,.ai-verdict,.map-wrap,#aiAnswer{
+  background:linear-gradient(180deg,var(--card2),var(--card)) !important; border:1px solid var(--border2) !important; color:var(--text); }
+.card{ box-shadow:var(--shadow); }
+.card-header h2,.summary-block h3,.ai-h{ color:#eaf0ff; }
+.summary-block h3{ color:var(--signal); font-family:var(--mono); }
+.summary-row,.summary-list li,.ai-list li{ border-color:var(--border) !important; }
+.summary-row span:first-child,.summary-list li,.ai-list li{ color:#c2cbe6; }
+.summary-row span:last-child{ color:#fff; }
+
+/* tables */
+table{ color:var(--text); }
+th{ background:var(--card); color:var(--muted); border-bottom:1px solid var(--border2); font-family:var(--mono); font-size:11px; letter-spacing:.04em; text-transform:uppercase; }
+td{ border-bottom:1px solid var(--border); }
+tr[data-i]{ transition:.12s; }
+tr[data-i]:hover{ background:rgba(124,108,255,.08) !important; box-shadow:inset 2px 0 0 var(--signal); }
+.empty-row td,.empty-note,.muted{ color:var(--muted) !important; }
+
+/* buttons + inputs */
+.btn-primary{ background:linear-gradient(180deg,#8a7bff,#6a58f5); color:#fff; box-shadow:0 0 18px rgba(124,108,255,.35); border:1px solid rgba(124,108,255,.5); }
+.btn-primary:hover{ box-shadow:0 0 26px rgba(124,108,255,.55); }
+.btn-outline{ background:rgba(255,255,255,.02); border:1px solid var(--border2); color:var(--text); }
+.btn-outline:hover{ border-color:var(--signal); color:#fff; box-shadow:var(--glow-signal); }
+input,select,textarea,.search-box input,.ai-field input,.ai-field select,.ai-field textarea,.ioc-toolbar select{
+  background:var(--bg2) !important; border:1px solid var(--border2) !important; color:var(--text) !important; }
+input::placeholder{ color:var(--dim); }
+input:focus,select:focus,textarea:focus{ outline:none; border-color:var(--signal) !important; box-shadow:var(--glow-signal); }
+
+/* severity badges — glow */
+.sev,.summary-badge{ font-family:var(--mono); }
+.sev-high,.summary-badge.high{ background:var(--danger-soft) !important; color:#ff8098 !important; box-shadow:0 0 14px rgba(255,77,109,.25); }
+.sev-medium,.summary-badge.medium{ background:var(--warn-soft,rgba(255,180,84,.14)) !important; color:#ffca7a !important; box-shadow:0 0 14px rgba(255,180,84,.2); }
+.sev-low,.summary-badge.low{ background:var(--success-soft,rgba(60,224,160,.14)) !important; color:#6ff0c2 !important; box-shadow:0 0 14px rgba(60,224,160,.2); }
+.source-tag,.node-source,.ai-chip,.mitre-tag,.eg-rel{ background:var(--accent-soft) !important; color:var(--accent-2) !important; border:1px solid rgba(124,108,255,.25); }
+.mitre-tag,.eg-rel{ font-family:var(--mono); }
+
+/* detections / nodes */
+.detection-item,.node-card{ background:linear-gradient(180deg,var(--card2),var(--card)) !important; border:1px solid var(--border2) !important; border-left:3px solid var(--accent) !important; transition:.16s; }
+.detection-item:hover,.node-card:hover{ border-color:var(--accent); box-shadow:0 0 0 1px rgba(124,108,255,.35), 0 10px 26px rgba(0,0,0,.45); }
+.detection-title,.node-main{ color:#fff; }
+.detection-desc,.node-meta{ color:#b9c2df !important; }
+.suggestion-box{ background:rgba(47,230,224,.06) !important; border-left:3px solid var(--signal) !important; color:#cfe9ff; }
+.node-tag{ background:var(--card) !important; color:#c2cbe6; border:1px solid var(--border2); }
+.node-stage{ color:var(--signal); font-family:var(--mono); }
+.chain-dot{ background:var(--signal); box-shadow:0 0 10px var(--signal); }
+.indicator-box{ border:1px dashed var(--border2) !important; color:#b9c2df; }
+
+/* evidence graph + ai gauge */
+.map-wrap{ background:radial-gradient(700px 400px at 50% 0,rgba(124,108,255,.06),transparent 60%),var(--card) !important; }
+.ai-gauge{ background:conic-gradient(var(--signal) calc(var(--p,0)*1%),rgba(255,255,255,.08) 0) !important; box-shadow:0 0 24px rgba(47,230,224,.25); }
+.ai-gauge::after{ background:var(--card) !important; }
+.ai-gauge-num{ color:#fff; }
+.ai-caveat{ background:rgba(255,180,84,.08) !important; border:1px solid rgba(255,180,84,.3) !important; color:#ffca7a !important; }
+.ai-privacy{ background:rgba(60,224,160,.08) !important; border:1px solid rgba(60,224,160,.3) !important; color:#6ff0c2 !important; }
+.details-card pre#details,#aiPayloadPreview{ background:#070b16 !important; border:1px solid var(--border2); color:#bfe9ff; }
+
+/* count-up entrance */
+.metric-value.counting{ animation:flick .5s ease; }
+@keyframes flick{ from{ opacity:.3; filter:blur(2px);} to{ opacity:1; filter:blur(0);} }
+
+@media (prefers-reduced-motion:reduce){
+  body::before,body::after,.metric-card::after,.eng-status .pip{ animation:none !important; }
+}
+
+/* ---- cyber theme: Investigate / cases / help / entity risk ---- */
+.decision-card,.chain-card,.entity-risk,.help-panel,.rule-builder,.proxy-status{
+  background:linear-gradient(180deg,var(--card2),var(--card)) !important; border:1px solid var(--border2) !important; color:var(--text); }
+.decision-card{ border-left-width:4px !important; transition:.16s; }
+.decision-card:hover{ box-shadow:0 0 0 1px rgba(124,108,255,.3), 0 10px 26px rgba(0,0,0,.45); }
+.decision-card.dc-p1{ border-left-color:var(--danger) !important; background:linear-gradient(180deg,rgba(255,77,109,.10),var(--card)) !important; }
+.decision-card.dc-p2{ border-left-color:var(--warn) !important; background:linear-gradient(180deg,rgba(255,180,84,.09),var(--card)) !important; }
+.decision-card.dc-p3{ border-left-color:var(--accent-2) !important; background:linear-gradient(180deg,rgba(79,140,255,.09),var(--card)) !important; }
+.decision-card.dc-ig{ border-left-color:#4a5578 !important; opacity:.85; }
+.dc-pri{ font-family:var(--mono); }
+.dc-pri.dc-p1{ background:var(--danger); box-shadow:0 0 14px rgba(255,77,109,.4); }
+.dc-pri.dc-p2{ background:var(--warn); color:#241a05; box-shadow:0 0 14px rgba(255,180,84,.35); }
+.dc-pri.dc-p3{ background:var(--accent-2); box-shadow:0 0 14px rgba(79,140,255,.35); }
+.dc-metric,.dc-why,.dc-linked,.help-grid,.dc-note{ color:#b9c2df !important; }
+.dc-metric b,.dc-action,.dc-value,.help-grid b,.entity-risk h3{ color:#fff !important; }
+.dc-metric b{ font-family:var(--mono); }
+.dc-scenario{ background:var(--accent-soft) !important; color:#b7a9ff !important; border:1px solid rgba(124,108,255,.25); }
+.dc-counter{ background:rgba(60,224,160,.08) !important; color:#6ff0c2 !important; }
+.dc-steps summary,.dc-steps ol{ color:#cdd6f2; }
+.dc-steps summary{ color:var(--signal) !important; }
+.case-pill{ background:var(--card) !important; color:#b9c2df !important; border:1px solid var(--border2); font-family:var(--mono); }
+.case-pill.cs-new{ background:var(--accent-soft) !important; color:#b7a9ff !important; }
+.case-pill.cs-investigating{ background:rgba(255,180,84,.12) !important; color:#ffca7a !important; }
+.case-pill.cs-escalated{ background:var(--danger-soft) !important; color:#ff8098 !important; }
+.case-pill.cs-contained{ background:rgba(47,230,224,.12) !important; color:#7cf0ec !important; }
+.case-pill.cs-closed{ background:rgba(60,224,160,.12) !important; color:#6ff0c2 !important; }
+.vbtn{ background:rgba(255,255,255,.03) !important; border:1px solid var(--border2) !important; color:#c2cbe6 !important; }
+.vbtn:hover{ background:rgba(124,108,255,.12) !important; border-color:var(--accent) !important; color:#fff !important; }
+.vbtn.on{ background:var(--accent) !important; color:#fff !important; border-color:var(--accent) !important; box-shadow:0 0 14px rgba(124,108,255,.4); }
+.help-panel summary,.rule-builder summary{ color:#eaf0ff; }
+.entity-risk{ background:var(--card) !important; }
+.er-badge.dc-p1{ background:var(--danger); } .er-badge.dc-p2{ background:var(--warn); color:#241a05; } .er-badge.dc-p3{ background:var(--accent-2); }
+.proxy-status code{ background:#070b16 !important; color:#7cf0a0 !important; }
+.ip-class{ color:#b9c2df; }
+.verdict-ok,.dc-verdict{ color:#cdd6f2; }
+
+.verdict-ok{ background:rgba(60,224,160,.10) !important; color:#6ff0c2 !important; } .verdict-bad{ background:var(--danger-soft) !important; color:#ff8098 !important; }
+
+/* ---- 'How this works' explainer panels ---- */
+.how-panel{ background:linear-gradient(180deg,rgba(47,230,224,.06),var(--card)); border:1px solid rgba(47,230,224,.25); border-radius:12px; margin-bottom:16px; overflow:hidden; }
+.how-panel>summary{ cursor:pointer; padding:11px 15px; font-size:12px; font-weight:700; color:var(--signal); font-family:var(--mono); letter-spacing:.03em; list-style:none; }
+.how-panel>summary::-webkit-details-marker{ display:none; }
+.how-panel>summary::before{ content:"◈ "; }
+.how-panel[open]>summary{ border-bottom:1px solid rgba(47,230,224,.18); }
+.how-body{ padding:13px 16px 15px; font-size:12.7px; line-height:1.6; color:#c2cbe6; }
+.how-body b{ color:#eaf0ff; } .how-body code{ background:#070b16; color:#7cf0ec; padding:1px 6px; border-radius:4px; font-size:11.5px; font-family:var(--mono); }
+.how-body ul{ margin:8px 0 0; padding-left:18px; } .how-body li{ margin:4px 0; }
+.how-body .cap{ margin-top:10px; font-size:11.8px; color:#8f9ac0; border-top:1px dashed var(--border2); padding-top:9px; }
+.how-k{ display:inline-block; width:10px;height:10px;border-radius:50%;vertical-align:middle;margin-right:5px; }
+
+/* ---- Plain-English verdict card (beginner-friendly summary) ---- */
+.plain-card{ border-radius:14px; padding:18px 20px; margin-bottom:16px; border:1px solid var(--border2); background:linear-gradient(180deg,var(--card2),var(--card)); box-shadow:var(--shadow); }
+.plain-verdict{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.plain-dot{ width:13px; height:13px; border-radius:50%; box-shadow:0 0 12px currentColor; }
+.plain-level{ font-family:var(--mono); font-size:12px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; }
+.plain-headline{ font-size:17px; font-weight:750; color:#eef2ff; margin-bottom:6px; }
+.plain-story{ font-size:14px; line-height:1.65; color:#c5cde8; margin-bottom:4px; }
+.plain-h{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#8f9ac0; margin:14px 0 6px; font-family:var(--mono); }
+.plain-list{ list-style:none; padding:0; margin:0; }
+.plain-list li{ padding:9px 13px; margin:6px 0; border-radius:9px; background:rgba(124,108,255,.07); border-left:3px solid var(--accent); font-size:13.5px; line-height:1.5; color:#d3dbf2; }
+.plain-list li b{ color:#fff; }
+.plain-next li{ background:rgba(47,230,224,.06); border-left-color:var(--signal); }
+
+/* ---- click-to-pivot links + active-filter chip ---- */
+.pivot{ color:var(--signal); cursor:pointer; border-bottom:1px dashed rgba(47,230,224,.45); transition:.12s; }
+.pivot:hover{ color:#fff; background:rgba(47,230,224,.14); border-radius:4px; }
+#filterChip{ margin-bottom:12px; }
+.filter-chip{ display:inline-flex; align-items:center; gap:10px; background:rgba(47,230,224,.10); border:1px solid rgba(47,230,224,.35); color:#bff3f0; border-radius:999px; padding:7px 14px; font-size:13px; box-shadow:var(--glow-signal); }
+.filter-chip b{ color:#fff; font-family:var(--mono); }
+.chip-x{ cursor:pointer; color:#fff; background:rgba(255,255,255,.12); border-radius:999px; padding:2px 9px; font-size:11px; font-weight:700; }
+.chip-x:hover{ background:var(--danger); }
+
+/* ---- Hunt (self-investigation) workbench ---- */
+.hunt-bar{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:10px; }
+.hunt-bar input,.hunt-bar select{ padding:9px 11px; border-radius:8px; font-size:13px; min-width:0; }
+.hunt-bar #huntText{ grid-column:1/3; }
+@media(max-width:820px){ .hunt-bar{ grid-template-columns:1fr 1fr; } .hunt-bar #huntText{ grid-column:1/3; } }
+.hunt-active{ display:flex; flex-wrap:wrap; gap:7px; margin-bottom:10px; }
+.hunt-active:empty{ display:none; }
+.hunt-af{ display:inline-flex; align-items:center; gap:7px; font-size:12px; font-family:var(--mono); background:rgba(47,230,224,.10); border:1px solid rgba(47,230,224,.35); color:#bff3f0; border-radius:999px; padding:4px 6px 4px 11px; }
+.hunt-af b{ color:#fff; }
+.hunt-af .af-x{ cursor:pointer; background:rgba(255,255,255,.12); color:#fff; border-radius:999px; width:16px; height:16px; display:inline-flex; align-items:center; justify-content:center; font-size:11px; }
+.hunt-af .af-x:hover{ background:var(--danger); }
+.hunt-chips{ display:flex; flex-wrap:wrap; gap:7px; margin-bottom:10px; }
+.hunt-chip{ cursor:pointer; font-size:12px; font-family:var(--mono); padding:5px 11px; border-radius:999px; background:var(--accent-soft); color:var(--accent-2); border:1px solid rgba(124,108,255,.3); transition:.12s; }
+.hunt-chip:hover{ background:rgba(124,108,255,.2); color:#fff; }
+.hunt-chip.hc-sig{ background:rgba(255,77,109,.10); color:#ff8098; border-color:rgba(255,77,109,.3); }
+.hunt-stats{ display:flex; flex-wrap:wrap; gap:14px; margin-bottom:12px; font-size:12.5px; }
+.hunt-stat{ background:var(--card); border:1px solid var(--border2); border-radius:10px; padding:9px 12px; min-width:140px; }
+.hunt-stat h4{ margin:0 0 6px; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); font-family:var(--mono); }
+.hunt-stat .hs-row{ display:flex; justify-content:space-between; gap:10px; padding:2px 0; cursor:pointer; color:#c9d3ee; }
+.hunt-stat .hs-row:hover{ color:#fff; }
+.hunt-stat .hs-row b{ font-family:var(--mono); color:#fff; }
+.hunt-actions{ display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+.hunt-results table{ width:100%; }
+.hunt-more{ text-align:center; color:var(--muted); font-size:12px; padding:8px; }
+
+/* ---- fixed always-visible filter pill (was inline, easy to lose) ---- */
+#filterChip{ position:fixed; left:50%; bottom:22px; transform:translateX(-50%); z-index:9000; margin:0; }
+#filterChip:empty{ display:none; }
+#filterChip .filter-chip{ box-shadow:0 8px 30px rgba(0,0,0,.5), var(--glow-signal); }
+/* ---- event detail drawer (Inspector) ---- */
+#inspectorBackdrop{ position:fixed; inset:0; background:rgba(3,5,12,.55); backdrop-filter:blur(2px); opacity:0; pointer-events:none; transition:opacity .2s; z-index:9500; }
+#inspectorBackdrop.open{ opacity:1; pointer-events:auto; }
+#inspector{ position:fixed; top:0; right:0; height:100%; width:420px; max-width:92vw; background:linear-gradient(180deg,#0c1222,#0a0e1c); border-left:1px solid var(--border2); box-shadow:-16px 0 50px rgba(0,0,0,.55); transform:translateX(100%); transition:transform .24s cubic-bezier(.4,0,.2,1); z-index:9600; display:flex; flex-direction:column; }
+#inspector.open{ transform:translateX(0); }
+.insp-head{ display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--border2); font-family:var(--mono); font-size:13px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--signal); }
+.insp-close{ cursor:pointer; width:28px; height:28px; display:flex; align-items:center; justify-content:center; border-radius:8px; color:#c5cde8; background:rgba(255,255,255,.05); }
+.insp-close:hover{ background:var(--danger); color:#fff; }
+#inspBody{ padding:14px 18px 24px; overflow:auto; }
+.insp-row{ display:grid; grid-template-columns:96px 1fr; gap:10px; padding:9px 0; border-bottom:1px solid rgba(255,255,255,.05); align-items:start; }
+.insp-k{ font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); font-family:var(--mono); padding-top:2px; }
+.insp-v{ font-size:13.5px; color:#e7ecff; word-break:break-word; }
+.insp-actions{ display:flex; flex-direction:column; gap:8px; margin:16px 0 6px; }
+.insp-actions .btn{ width:100%; justify-content:flex-start; }
+.insp-raw{ margin-top:14px; }
+.insp-raw summary{ cursor:pointer; font-size:12px; color:var(--muted); font-family:var(--mono); }
+.insp-raw pre{ margin-top:8px; background:#070b16; border:1px solid var(--border2); border-radius:9px; padding:12px; font-size:11.5px; color:#bfe9ff; white-space:pre-wrap; word-break:break-word; max-height:320px; overflow:auto; }
+/* old inline details card no longer needed (drawer replaces it) */
+.details-card{ display:none !important; }
+
+.view-count{ font-size:12.5px; color:var(--signal); font-family:var(--mono); padding:2px 0 10px; }
+.view-count:empty{ display:none; }
+.view-count b{ color:#fff; }
+.view-count .vc-clear{ cursor:pointer; margin-left:10px; color:#c5cde8; background:rgba(255,255,255,.07); border-radius:999px; padding:2px 10px; font-size:11px; }
+.view-count .vc-clear:hover{ background:var(--danger); color:#fff; }
+
+/* ---- persistent 'total logs' panel in sidebar (never changes when filtering) ---- */
+.nav-dataset{ background:linear-gradient(180deg,var(--card2),var(--card)); border:1px solid var(--border2); border-radius:10px; padding:12px 13px; margin:2px 0 8px; }
+.nav-dataset .nd-label{ font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); font-family:var(--mono); }
+.nav-dataset .nd-total{ font-size:26px; font-weight:800; color:#fff; font-family:var(--mono); line-height:1.1; margin-top:3px; }
+.nav-dataset .nd-unit{ font-size:12px; color:var(--muted); font-weight:600; }
+.nav-dataset .nd-src{ font-size:11.5px; color:var(--signal); margin-top:4px; font-family:var(--mono); word-break:break-word; }
+
+.insp-sub{ font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); font-family:var(--mono); margin:16px 0 8px; }
+.insp-steps{ margin:0; padding-left:20px; } .insp-steps li{ font-size:13px; color:#d3dbf2; margin:5px 0; line-height:1.5; }
+.insp-evs{ display:flex; flex-direction:column; gap:5px; }
+.insp-ev{ display:flex; align-items:center; gap:8px; padding:7px 9px; border-radius:8px; background:rgba(124,108,255,.06); border-left:2px solid var(--accent); cursor:pointer; font-size:12px; }
+.insp-ev:hover{ background:rgba(47,230,224,.12); border-left-color:var(--signal); }
+.insp-ev .ie-t{ color:var(--muted); font-family:var(--mono); font-size:11px; white-space:nowrap; }
+.insp-ev .ie-a{ color:#d3dbf2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.insp-v .stage-pill{ display:inline-block; margin:2px 3px 2px 0; }
+
+.plain-cov{ font-size:12.8px; line-height:1.6; color:#c5cde8; background:rgba(255,255,255,.03); border:1px solid var(--border2); border-radius:9px; padding:10px 13px; }
+.plain-cov b{ color:#fff; font-family:var(--mono); }
+.plain-warn{ color:#ffca7a; }
+.plain-early{ font-size:13px; line-height:1.6; color:#ffd9a0; background:rgba(255,180,84,.08); border:1px solid rgba(255,180,84,.3); border-radius:9px; padding:11px 14px; }
+.plain-early b{ color:#fff; }
+.plain-early .plain-list li{ background:rgba(255,180,84,.10); border-left-color:var(--warn); color:#ffe6c2; }
+.insp-early{ background:rgba(255,180,84,.10); border:1px solid rgba(255,180,84,.35); color:#ffd9a0; border-radius:9px; padding:11px 13px; font-size:13px; line-height:1.55; margin-bottom:14px; }
+
+#lockScreen{ position:fixed; inset:0; z-index:99999; background:radial-gradient(900px 600px at 50% 30%, #0d1428, #05070f 70%); display:none; align-items:center; justify-content:center; }
+#lockScreen.on{ display:flex; }
+.lock-box{ width:340px; max-width:90vw; background:linear-gradient(180deg,var(--card2),var(--card)); border:1px solid var(--border2); border-radius:16px; padding:30px 28px; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,.6); }
+.lock-logo{ font-size:24px; font-weight:800; color:#fff; letter-spacing:-.02em; }
+.lock-logo span{ color:var(--accent); }
+.lock-sub{ font-size:12px; color:var(--muted); font-family:var(--mono); text-transform:uppercase; letter-spacing:.08em; margin:6px 0 18px; }
+.lock-box input{ width:100%; box-sizing:border-box; padding:11px 13px; border-radius:9px; margin-bottom:10px; text-align:center; font-size:15px; letter-spacing:.12em; }
+.lock-box .btn{ width:100%; }
+.lock-msg{ color:#ff8098; font-size:12.5px; min-height:18px; margin-top:8px; }
+.lock-note{ font-size:11.5px; color:var(--dim); margin-top:10px; line-height:1.5; }
+.auth-row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:8px 0; font-size:13px; color:#c5cde8; }
+.auth-row input{ flex:1; min-width:150px; padding:9px 11px; border-radius:8px; }
+.auth-sub{ font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); font-family:var(--mono); margin:12px 0 4px; }
+.auth-code-row{ display:flex; justify-content:space-between; align-items:center; padding:7px 10px; border-radius:8px; background:rgba(124,108,255,.06); border-left:2px solid var(--accent); margin:5px 0; font-size:13px; color:#d3dbf2; }
+.auth-note{ font-size:12px; color:#8f9ac0; margin-top:10px; line-height:1.55; border-top:1px dashed var(--border2); padding-top:9px; }
+
+.sec-about{ padding:6px 2px; font-size:13px; line-height:1.6; color:#c5cde8; }
+.sec-about p{ margin:8px 0; }
+.sec-about b{ color:#eef2ff; }
+.sec-about code{ background:rgba(124,108,255,.14); padding:1px 6px; border-radius:5px; font-size:12px; color:#cdd6ff; }
+.sec-tldr{ background:rgba(47,230,224,.08); border:1px solid rgba(47,230,224,.3); border-radius:8px; padding:9px 12px; color:#bff3f0; }
+
+/* ---- welcome / onboarding card ---- */
+.welcome-card{ border-radius:14px; padding:22px 24px; border:1px solid var(--border2); background:linear-gradient(180deg,var(--card2),var(--card)); box-shadow:var(--shadow); }
+.welcome-title{ font-size:22px; font-weight:800; color:#eef2ff; letter-spacing:-.01em; }
+.welcome-sub{ font-size:14px; color:#c5cde8; margin:6px 0 18px; line-height:1.6; }
+.welcome-steps{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+@media(max-width:760px){ .welcome-steps{ grid-template-columns:1fr; } }
+.welcome-steps .ws{ display:flex; gap:11px; align-items:flex-start; background:rgba(124,108,255,.06); border:1px solid var(--border2); border-radius:10px; padding:13px; font-size:13px; color:#d3dbf2; line-height:1.5; }
+.welcome-steps .ws b{ color:#fff; }
+.welcome-steps .ws-n{ flex:none; width:24px; height:24px; border-radius:50%; background:var(--accent); color:#fff; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center; }
+.welcome-note{ font-size:12px; color:#8f9ac0; margin-top:16px; line-height:1.6; border-top:1px dashed var(--border2); padding-top:12px; }
+/* ---- app footer ---- */
+.app-footer{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; align-items:center; padding:20px 16px 26px; margin-top:24px; border-top:1px solid var(--border2); color:var(--dim); font-size:12px; font-family:var(--mono); }
+.app-footer b{ color:var(--accent); }
+.app-footer .dot{ opacity:.5; }
+
+.echo-wrap{ margin-top:14px; border:1px dashed var(--border2); border-radius:10px; padding:8px 12px; background:rgba(255,255,255,.02); }
+.echo-wrap summary{ cursor:pointer; font-size:12.5px; color:var(--muted); line-height:1.5; }
+.echo-wrap .detection-item{ opacity:.75; }
+
+/* compact sample chips + my-rules sidebar */
+.nav-fold summary::-webkit-details-marker{ display:none; }
+.sample-chips,.nav-mybtns{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.s-chip{ background:transparent; border:1px solid var(--border2); border-radius:999px; padding:4px 11px; color:#c3cbe6; font-size:11.5px; cursor:pointer; font-family:var(--mono); transition:.14s; }
+.s-chip:hover{ border-color:var(--signal); background:var(--signal-soft); color:#fff; }
+.nav-mystats{ font-size:11.5px; color:var(--muted); font-family:var(--mono); margin-top:2px; }
+
+.cr-toolbar{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-top:10px; padding-top:9px; border-top:1px dashed var(--border2); }
+.cr-tools{ display:flex; gap:8px; flex-wrap:wrap; }
+
+.ps-link{ cursor:pointer; border-bottom:1px dashed rgba(255,255,255,.28); transition:.12s; }
+.ps-link:hover{ background:rgba(47,230,224,.12); border-bottom-color:var(--signal); border-radius:4px; }
+li.ps-link:hover{ background:rgba(47,230,224,.10); }
+.det-flash{ animation:detflash 1.6s ease; }
+@keyframes detflash{ 0%,100%{ box-shadow:none; } 20%,60%{ box-shadow:0 0 0 2px var(--signal); } }
+
+.hunt-presets{ display:flex; flex-wrap:wrap; gap:7px; align-items:center; margin-bottom:12px; }
+.hp-label{ font-size:11.5px; color:var(--muted); font-family:var(--mono); text-transform:uppercase; letter-spacing:.05em; margin-right:2px; }
+.hunt-presets .s-chip{ font-size:12px; padding:5px 12px; }
+.hunt-hint{ font-size:12.5px; color:#9fb0d8; background:rgba(124,108,255,.06); border:1px solid var(--border2); border-radius:8px; padding:8px 12px; margin:10px 0 4px; line-height:1.55; }
+.hunt-hint b{ color:#dfe6ff; }
+
+#navSettings .rule-builder{ margin-bottom:8px; padding:6px 10px; }
+#navSettings .rule-builder summary{ font-size:12px; line-height:1.4; }
+#navSettings .rule-builder input, #navSettings .rule-builder textarea, #navSettings .rule-builder select{ width:100%; box-sizing:border-box; margin:4px 0; }
+#navSettings .rule-builder .btn{ width:100%; margin:3px 0; }
+#navSettings .auth-row{ flex-direction:column; align-items:stretch; }
+#navSettings .cr-toolbar{ flex-direction:column; align-items:stretch; }
+#navSettings .sec-about{ font-size:12px; }
+
+.tab-intro{ font-size:13px; color:#9fb0d8; margin:2px 0 12px; padding:0 2px; line-height:1.5; }
+.kf-mono{ font-family:var(--mono); font-size:11.5px; word-break:break-all; }
+
+/* ---- settings modal dialogs (large, centered, readable) ---- */
+.modal-overlay{ position:fixed; inset:0; z-index:9000; background:rgba(4,6,14,.66); backdrop-filter:blur(3px); display:none; align-items:flex-start; justify-content:center; padding:40px 16px; overflow-y:auto; }
+.modal-overlay.open{ display:flex; }
+.modal-box{ width:640px; max-width:100%; background:linear-gradient(180deg,var(--card2),var(--card)); border:1px solid var(--border2); border-radius:14px; box-shadow:0 24px 70px rgba(0,0,0,.6); animation:modalIn .16s ease; }
+@keyframes modalIn{ from{ opacity:0; transform:translateY(-8px); } to{ opacity:1; transform:none; } }
+.modal-head{ display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border2); font-size:15px; font-weight:700; color:#eef2ff; position:sticky; top:0; background:var(--card2); border-radius:14px 14px 0 0; }
+.modal-x{ background:transparent; border:none; color:var(--muted); font-size:18px; cursor:pointer; padding:2px 8px; border-radius:6px; }
+.modal-x:hover{ background:rgba(255,255,255,.08); color:#fff; }
+.modal-body{ padding:18px 20px 22px; }
+.modal-body input, .modal-body textarea, .modal-body select{ width:100%; box-sizing:border-box; margin:6px 0; padding:10px 12px; font-size:14px; }
+.modal-body textarea{ min-height:120px; font-family:var(--mono); font-size:12.5px; }
+.modal-body .btn{ margin:6px 6px 6px 0; }
+.modal-body .auth-row{ flex-wrap:wrap; }
+.modal-body .cr-toolbar{ margin-top:14px; }
+@media(max-width:520px){ .modal-box{ width:100%; } .modal-overlay{ padding:16px 8px; } }
+
+.fw-tag{ display:inline-block; font-family:var(--mono); font-size:10px; font-weight:700; padding:1px 6px; border-radius:5px; margin:2px 2px 0 0; vertical-align:middle; }
+.fw-csf{ color:#2fb98b; background:rgba(47,185,139,.12); border:1px solid rgba(47,185,139,.3); }
+.fw-d3f{ color:#e0913a; background:rgba(224,145,58,.12); border:1px solid rgba(224,145,58,.3); }
+
+.fid-tag{ display:inline-block; font-size:10px; font-weight:700; padding:1px 7px; border-radius:5px; margin-left:4px; vertical-align:middle; text-transform:none; }
+.fid-high{ color:#e14d6d; background:rgba(225,77,109,.12); border:1px solid rgba(225,77,109,.35); }
+.fid-medium{ color:#c98a2b; background:rgba(201,138,43,.12); border:1px solid rgba(201,138,43,.3); }
+.fid-low{ color:#7a86a8; background:rgba(122,134,168,.12); border:1px solid rgba(122,134,168,.3); }
+.row-cap-note td{ text-align:center; color:#9fb0d8; font-size:12px; padding:12px; background:rgba(124,108,255,.06); }
+.insp-why{ color:#dfe6ff; font-size:13px; line-height:1.5; background:rgba(47,230,224,.07); border-left:2px solid var(--signal); padding:6px 10px; border-radius:6px; display:block; }
+
+.insp-story{ margin:0; padding-left:20px; }
+.insp-story li{ font-size:12.5px; color:#d3dbf2; margin:6px 0; line-height:1.5; }
+.insp-story .story-a{ color:#e7ecff; }
+.insp-chk{ display:flex; flex-direction:column; gap:6px; }
+.chk-row{ display:flex; gap:9px; align-items:flex-start; font-size:12.5px; padding:7px 10px; border-radius:8px; background:rgba(255,255,255,.03); border-left:2px solid var(--border2); color:#d3dbf2; line-height:1.45; }
+.chk-row.chk-yes{ border-left-color:var(--danger); background:rgba(255,77,109,.07); }
+.chk-mark{ font-weight:800; flex:none; width:16px; }
+.chk-yes .chk-mark, .chk-yes .chk-ans{ color:#ff8098; } .chk-no .chk-mark, .chk-no .chk-ans{ color:var(--muted); }
+.chk-ans{ font-weight:700; margin-left:4px; }
+.insp-br{ display:flex; flex-wrap:wrap; gap:8px 16px; font-size:12.5px; color:#c5cde8; }
+.insp-br b{ color:#fff; font-family:var(--mono); }
+.insp-tech{ display:flex; flex-wrap:wrap; gap:6px; }
+.insp-rel .rel-row{ font-size:12.5px; color:#d3dbf2; padding:5px 0; border-bottom:1px solid rgba(255,255,255,.05); }
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="sidenav">
+    <div class="logo"><div class="logo-mark"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="24" y2="24"><stop stop-color="#5b4ef0"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs><path d="M12 2l7 3v6c0 4.2-2.9 7.8-7 9-4.1-1.2-7-4.8-7-9V5l7-3z" fill="url(#lg)"/><path d="M5.5 13h3l1.4-4 2.1 7 1.4-3H18.5" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div><div class="logo-text"><div class="logo-name">CloudLog</div><div class="logo-sub">SOC triage · by Praharsh</div></div></div>
+    <div class="nav-dataset" id="navDataset">
+      <div class="nd-label">Loaded dataset</div>
+      <div class="nd-total"><span id="navTotal">0</span> <span class="nd-unit">events</span></div>
+      <div class="nd-src" id="navSrc">no logs yet</div>
+    </div>
+    <div class="nav-section">
+      <details class="nav-fold">
+        <summary class="nav-label" style="cursor:pointer;">Sample sources (demo data) ▾</summary>
+        <div class="sample-chips">
+          <button class="s-chip" data-sample="edr" title="Endpoint / Sysmon sample">EDR</button>
+          <button class="s-chip" data-sample="pcap" title="Malware PCAP sample">PCAP</button>
+          <button class="s-chip" data-sample="aws" title="AWS CloudTrail sample">AWS</button>
+          <button class="s-chip" data-sample="azure" title="Azure Activity sample">Azure</button>
+          <button class="s-chip" data-sample="okta" title="Okta System Log sample">Okta</button>
+          <button class="s-chip" data-sample="gcp" title="GCP Audit sample">GCP</button>
+          <button class="s-chip" data-sample="windows" title="Windows Event Log sample">Win</button>
+          <button class="s-chip" data-sample="guardduty" title="AWS GuardDuty sample">GuardDuty</button>
+          <button class="s-chip" data-sample="apache" title="Apache/Web access sample">Apache</button>
+          <button class="s-chip" data-sample="generic" title="Generic JSON sample">JSON</button>
+        </div>
+      </details>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">My rules &amp; IOCs</div>
+      <div class="nav-mystats" id="navMyStats">0 rules · 0 blocked · 0 allowed</div>
+      <div class="nav-mybtns">
+        <button class="s-chip" id="navAddRule" title="Add your own detection rule">＋ Rule</button>
+        <label class="s-chip" for="navImportPrefs" title="Import rules/IOC lists from a JSON file or saved case" style="cursor:pointer;">⬆ Import<input type="file" id="navImportPrefs" accept=".json" style="display:none"/></label>
+        <button class="s-chip" id="navExportPrefs" title="Export your rules & IOC lists as JSON">⬇ Export</button>
+      </div>
+    </div>
+    <div class="nav-section" id="navSettings">
+      <div class="nav-label">Settings &amp; rules</div>
+      <div class="nav-mybtns">
+        <button class="s-chip settings-open" data-modal="modalRule">➕ Detection rule</button>
+        <button class="s-chip settings-open" data-modal="modalIntel">📥 Import intel</button>
+        <button class="s-chip settings-open" data-modal="modalAuth">🔐 Access &amp; encryption</button>
+        <button class="s-chip settings-open" data-modal="modalSec">🛡️ About security</button>
+      </div>
+    </div>
+    <div class="nav-footer"><span class="muted small">Runs 100% locally — no data leaves your browser.<br/><br/>Built by <b style="color:#cfd3e6">Praharsh</b></span></div>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <h1>CloudLog</h1>
+        <p class="muted">Local-first security investigation &amp; decision support — built by <b style="color:var(--accent)">Praharsh</b>.</p>
+      </div>
+      <div class="topbar-actions">
+        <label class="btn btn-outline" for="fileInput">Upload log<input type="file" id="fileInput" accept=".json,.ndjson,.jsonl,.log,.txt,.csv,.cef,.evtx" /></label>
+        <button class="btn btn-outline" id="saveCaseBtn">Save case</button>
+        <label class="btn btn-outline" for="loadCaseInput">Load case<input type="file" id="loadCaseInput" accept=".json" style="display:none"/></label>
+        <button class="btn btn-outline" id="reportBtn">Report</button>
+        <button class="btn btn-primary" id="exportCsv">Export CSV</button>
+        <button class="btn btn-outline" id="clearLogBtn" title="Clear the loaded log (keeps your saved IPs & rules)">Clear</button>
+        <button class="btn btn-outline" id="logoutBtn" style="display:none" title="End session and lock">Logout</button>
+      </div>
+    </header>
+
+    <div id="uploadError" class="hidden" style="background:#fdeced; border:1px solid #f4c7ca; color:#b91c1c; padding:12px 16px; border-radius:10px; margin-bottom:14px; font-size:13px;"></div>
+
+    <section class="metrics">
+      <div class="metric-card"><span class="metric-label">Total events</span><span class="metric-value" id="mEvents">0</span></div>
+      <div class="metric-card"><span class="metric-label">Unique actors</span><span class="metric-value" id="mActors">0</span></div>
+      <div class="metric-card"><span class="metric-label">Unique IPs</span><span class="metric-value" id="mIps">0</span></div>
+      <div class="metric-card"><span class="metric-label">Time span</span><span class="metric-value small-value" id="mSpan">-</span></div>
+      <div class="metric-card"><span class="metric-label">Active source</span><span class="metric-value small-value" id="mSource">None</span></div>
+      <div class="metric-card danger"><span class="metric-label">Detections</span><span class="metric-value" id="mDetections">0</span></div>
+    </section>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="summary">Summary</div>
+      <div class="tab" data-tab="timeline">Timeline</div>
+      <div class="tab" data-tab="detections">Detections</div>
+      <div class="tab" data-tab="chain">Attack Chain</div>
+      <div class="tab" data-tab="map">Evidence Graph</div>
+      <div class="tab" data-tab="ai">AI Analyst</div>
+      <div class="tab" data-tab="investigate">Investigate</div>
+      <div class="tab" data-tab="hunt">🔎 Hunt</div>
+    </div>
+
+    <div class="tab-panel active" id="panel-summary">
+      <p class="tab-intro">What happened in this log, in plain English — start here.</p>
+<div id="plainSummary"><div class="welcome-card"><div class="welcome-title">Welcome to CloudLog</div><div class="welcome-sub">A single-file security log triage tool that runs entirely in your browser — nothing is sent anywhere.</div><div class="welcome-steps"><div class="ws"><span class="ws-n">1</span><div><b>Load a log</b><br>Click <b>Upload log</b> above, or pick a sample source in the sidebar.</div></div><div class="ws"><span class="ws-n">2</span><div><b>Read the summary</b><br>A plain-English verdict: what looks like an attack, and what to do first.</div></div><div class="ws"><span class="ws-n">3</span><div><b>Investigate</b><br>Open <b>Investigate</b>, hit 🔎 on an incident, and click any IP or user to follow the trail.</div></div></div><div class="welcome-note">Supports JSON, CSV, syslog, CEF, Apache, Zeek, AWS GuardDuty, Windows/Sysmon, Splunk/Wazuh/Sentinel. A heuristic triage assistant — it flags common, known attack patterns to help you look faster; it doesn't replace a SIEM.</div></div></div>
+<div id="filterChip"></div>
+<details class="how-panel"><summary>How the Summary works — what these numbers mean</summary><div class="how-body">
+Every event is sorted into <b>Malicious</b>, <b>Suspicious</b>, or <b>Info</b> by a fixed order of checks:
+<ul>
+<li>Your <b>allow-list</b> wins first (→ Info), then your <b>block-list</b> (→ Malicious).</li>
+<li>An <b>already-blocked</b> threat rated low is downgraded to Suspicious (it was mitigated).</li>
+<li>Hard indicators (<code>mimikatz</code>, <code>ransomware</code>, C2 names…) → Malicious.</li>
+<li>The <b>source's own severity</b> is honoured: Critical→Malicious, High/Medium→Suspicious, Low/Info→Info.</li>
+<li><b>OWASP payload signatures</b> (SQLi, XSS, SSRF…) matched in the raw request → Malicious/Suspicious.</li>
+<li>Everything else is Info (normal telemetry).</li>
+</ul>
+<div class="cap">This is deterministic heuristic triage, not ML — the same input always gives the same result. Wrong call? Use 👎 on a row, or add an allow/block/custom rule in <b>Investigate</b>.</div>
+</div></details>
+      <div class="card">
+        <div class="card-header"><h2>Log Summary</h2></div>
+        <div id="summaryContent"><p class="empty-note">No log loaded yet. Upload a file or pick a sample source from the sidebar.</p></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-timeline">
+      <p class="tab-intro">Every event, one per row — search, click an IP or user to focus, click a row for full detail.</p>
+<details class="how-panel"><summary>How the Timeline works</summary><div class="how-body">
+Events are ordered by their <b>timestamp</b> and tagged with an attack <b>stage</b> (Reconnaissance → Initial Access → Execution → Persistence → Credential Access → Lateral Movement → Exfiltration → Impact). The stage is inferred per event from its action text and matched MITRE technique.
+<div class="cap">If timestamps are missing or in an odd format, ordering may be approximate — check the raw event. Stage names come from keyword/technique matching, so a mis-tagged stage usually means a rule needs tuning.</div>
+</div></details>
+      <div class="content-grid">
+        <div class="card">
+          <div class="card-header">
+            <h2>Event Timeline</h2>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <button class="btn btn-outline" id="sortToggle" style="padding:8px 12px; font-size:12.5px;">&#8595; Newest first</button>
+              <select id="sevFilter" style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:inherit;margin-right:8px;"><option value="important">Show: Malicious + Suspicious</option><option value="all">Show: all events</option></select><div class="search-box"><input type="text" id="search" placeholder="Search actor, action, IP..." /></div>
+            </div>
+          </div>
+          <div id="viewCount" class="view-count"></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Severity</th><th>Time (UTC)</th><th>Actor</th><th>Action</th><th>IP</th><th>Source</th></tr></thead>
+              <tbody id="tbody"><tr class="empty-row"><td colspan="6">No events loaded. Upload a file or pick a source from the sidebar.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card details-card">
+          <div class="card-header"><h2>Event Details</h2></div>
+          <pre id="details">Select a row to inspect the raw event.</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-detections">
+      <p class="tab-intro">What the rules flagged and why — real findings first, repeated verdict echoes collapsed at the bottom.</p>
+<details class="how-panel"><summary>How Detections work — the evaluation basis</summary><div class="how-body">
+Each row is a <b>MITRE ATT&CK technique</b> whose pattern matched your data. Two kinds of rules run:
+<ul>
+<li><b>Per-event signatures</b> — a regex/keyword matches one event (e.g. <code>UNION SELECT</code> → SQLi, <code>sekurlsa</code> → credential dumping). Payloads are decoded first (URL/entity/comment) so encoded attacks still match.</li>
+<li><b>Aggregate rules</b> — a pattern across many events (e.g. brute force = 3+ failed logins from one <b>source IP</b>).</li>
+</ul>
+Rows are grouped by technique — "120 events (49 sources)" means the rule fired for 49 separate sources.
+<div class="cap">Signatures catch <i>known</i> patterns; a novel payload with no matching rule won't show here. You can add your own patterns under <b>Investigate → Custom rules</b>.</div>
+</div></details>
+      <div class="card">
+        <div class="card-header"><h2>Suspicious Pattern Detections</h2></div>
+
+        
+        
+        <div id="detectionsList"><p class="empty-note">No detections yet. Load a log source to run analysis.</p></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-chain">
+      <p class="tab-intro">Related events grouped into attack chains, in time order.</p>
+<details class="how-panel"><summary>How the Attack Chain works</summary><div class="how-body">
+For a correlated incident, events are laid out in <b>stage order</b> to show the story: how an attacker got in, what they ran, and where they went. Each step links back to the real events behind it.
+<div class="cap">The chain only reflects what's in the logs — if a stage wasn't logged, it won't appear. Order follows timestamps + stage, so a gap usually means missing telemetry, not a missing step.</div>
+</div></details>
+      <div class="card">
+        <div class="card-header"><h2>Connected Event Chain</h2></div>
+        <div id="modernChain"><p class="empty-note">No chain yet. Load a log source to build the sequence.</p></div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-header"><h2>Actor Activity Chain (legacy list)</h2></div>
+        <div id="chainList"><p class="empty-note">No activity chain yet. Load a log source to build the sequence.</p></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-map">
+      <p class="tab-intro">A picture of how users, IPs and events connect.</p>
+<details class="how-panel"><summary>How to read the Evidence Graph</summary><div class="how-body">
+Entities are linked by shared activity. The encoding:
+<ul>
+<li><span class="how-k" style="background:#7c6cff"></span><b>Colour = type</b> — user, IP, host, domain, hash (one column each).</li>
+<li><span class="how-k" style="background:#0d1322;border:2px solid #ff4d6d"></span><b>Ring = risk</b> — red high, amber medium, white low.</li>
+<li><b>Size = event count</b> — bigger dot, more activity.</li>
+<li><b>Edges = typed relationships</b> — <code>logged_into</code>, <code>connected_to</code>, <code>resolved_to</code>, <code>dumped_creds_on</code>… hover or click to trace.</li>
+</ul>
+Risk per entity fuses its malicious/suspicious events, failed logins, credential-access and privilege signals.
+<div class="cap">Click any node to isolate its connections. A dense "hairball" means many shared indicators — click a node to cut through it.</div>
+</div></details>
+      <div class="card">
+        <div class="card-header">
+          <h2>Evidence Graph</h2>
+          <span class="muted small">Typed relationships between entities — logged_into · executed_on · connected_to · resolved_to · dumped_creds_on. Click a node to trace its connections.</span>
+        </div>
+        <div id="egInfo" class="eg-info">Click any entity to trace its connections across the investigation.</div>
+        <div class="map-wrap"><svg id="attackMapSvg" width="100%" height="600"></svg></div>
+        <div id="mapLegend" class="map-legend"></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-ai">
+      <p class="tab-intro">An analyst-style written briefing of the whole log (optional AI explanations).</p>
+<details class="how-panel"><summary>How the AI Analyst works — and what runs locally</summary><div class="how-body">
+<b>Detection happens locally first</b> — the rules above do the work with no network calls. This tab only <i>summarises</i>: it groups and de-duplicates the detections into a plain-language narrative, and the gauge shows the share of events that were flagged.
+<br><br>If you add your own API key, it can draft a written explanation of the findings — but it never decides severity, and nothing is sent anywhere unless you opt in with a key.
+<div class="cap">Treat the narrative as a first draft for a human analyst, not a verdict. The underlying facts are the detections and evidence, not the prose.</div>
+</div></details>
+      <div class="card">
+        <div class="card-header">
+          <h2>AI Analyst</h2>
+          <span class="muted small">On-device triage. Optional cloud Q&amp;A is opt-in and sends only a redacted summary.</span>
+        </div>
+        <div id="analystContent"><p class="empty-note">Load a log source to generate an AI analyst report.</p></div>
+
+        <div class="ai-cloud">
+          <h3 class="ai-h">Ask AI about this incident (optional)</h3>
+          <div class="ai-privacy">🔒 <b>Local-first.</b> The report above is generated entirely on your device. This box is the <b>only</b> feature that can send data off-device, it is off until you use it, it needs <b>your own</b> API key for the provider you pick, and it transmits <b>only the redacted aggregate summary</b> shown below — never raw logs, full IPs, or identities.</div>
+          <div class="ai-field">
+            <label for="aiProvider">AI provider (bring your own key — Claude, ChatGPT, or Gemini)</label>
+            <select id="aiProvider">
+              <option value="anthropic">Anthropic — Claude</option>
+              <option value="openai">OpenAI — ChatGPT</option>
+              <option value="gemini">Google — Gemini</option>
+            </select>
+          </div>
+          <div class="ai-field">
+            <label for="aiKey" id="aiKeyLabel">Your Anthropic API key (in memory only, never saved)</label>
+            <input type="password" id="aiKey" placeholder="sk-ant-..." autocomplete="off" />
+          </div>
+          <div class="ai-field">
+            <label for="aiModel">Model <span class="muted small" id="aiModelHint"></span></label>
+            <input type="text" id="aiModel" list="aiModelList" value="claude-sonnet-5" autocomplete="off" />
+            <datalist id="aiModelList"></datalist>
+          </div>
+          <div class="ai-field">
+            <label for="aiQuestion">Question</label>
+            <textarea id="aiQuestion" placeholder="e.g. Is this consistent with account takeover? What should I check next?"></textarea>
+          </div>
+          <span class="ai-preview-toggle" id="aiPreviewToggle">▸ Preview exactly what will be sent</span>
+          <pre id="aiPayloadPreview" class="hidden"></pre>
+          <button class="btn btn-primary" id="aiAskBtn">Ask (sends redacted summary)</button>
+          <div id="aiAnswer" style="margin-top:14px;">The answer will appear here.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-investigate">
+      <p class="tab-intro">Incidents ranked P1–P3 by urgency — open 🔎 on one to see everything about it.</p>
+<details class="how-panel"><summary>How Investigate works — correlation, priority & scoring</summary><div class="how-body">
+Thousands of events are collapsed into a few <b>incidents</b>, each with a Decision Card:
+<ul>
+<li><b>Correlation</b> — events are merged when they share a source IP, actor, hash, or domain (within a time window). A <b>hub guard</b> stops unrelated attackers being merged just because they touched the same popular indicator.</li>
+<li><b>Priority</b> (P1/P2/P3/Ignore) — from severity, multi-stage progression, and credential/privilege signals.</li>
+<li><b>Risk</b> — 0–100, weighted down by <b>Confidence</b> so a shaky call can't read as certain.</li>
+<li><b>Scenario</b> — matches known shapes (Account Takeover, Web Exploitation, Ransomware…).</li>
+<li><b>Entity Risk</b> — scores each user/IP across all their events.</li>
+</ul>
+<div class="cap">You control the inputs: add <b>allow-list</b>, <b>block-list</b>, <b>YARA</b>, or <b>custom rules</b> here and everything re-evaluates. Found a wrong call? Adjust a rule and re-run — the logic is transparent by design.</div>
+</div></details>
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header"><h2>Correlated Attack Chains</h2>
+          <span class="muted small">Events auto-linked by shared public IP, actor, hash, or domain within a time window.</span></div>
+        <div id="chainsContent"><p class="empty-note">Load logs to auto-correlate attack chains.</p></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h2>Indicators &amp; Threat Intel</h2></div>
+        <details class="keys-panel">
+          <summary>🔑 Add API keys here (you run this locally)</summary>
+          <p class="muted small" style="margin:8px 0;">Keys stay in memory only (cleared on refresh). <b>Browsers block direct calls to VirusTotal, AbuseIPDB, OTX, Shodan &amp; GreyNoise (CORS)</b> — those still need the local proxy. <b>Geo/ASN needs no key and works right here.</b> urlscan &amp; Safe Browsing may work directly.</p>
+          <div class="keys-grid">
+            <input type="password" id="bk_vt" placeholder="VirusTotal key" autocomplete="off"/>
+            <input type="password" id="bk_abuse" placeholder="AbuseIPDB key" autocomplete="off"/>
+            <input type="password" id="bk_otx" placeholder="OTX key" autocomplete="off"/>
+            <input type="password" id="bk_urlscan" placeholder="urlscan key" autocomplete="off"/>
+            <input type="password" id="bk_gsb" placeholder="Safe Browsing key" autocomplete="off"/>
+            <input type="password" id="bk_greynoise" placeholder="GreyNoise key" autocomplete="off"/>
+            <input type="password" id="bk_shodan" placeholder="Shodan key" autocomplete="off"/>
+          </div>
+        </details>
+        <div id="proxyStatus" class="proxy-status">Checking for local threat-proxy…</div>
+        <div id="iocContent"><p class="empty-note">Load logs to extract indicators.</p></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-hunt">
+      <p class="tab-intro">Your manual search bench — use a one-click hunt below or build your own filters.</p>
+      <details class="how-panel"><summary>How Hunt works — investigate on your own</summary><div class="how-body">
+      Your <b>manual workbench</b>. Filter every event by <b>Event&nbsp;ID</b>, <b>event type</b>, IP, user, keyword, severity, source, or time window. The breakdowns and stats update live and every value is clickable, so you can follow a hunch by pivoting. Nothing is decided for you here — you drive.
+      <div class="cap">Keyboard (when this tab is open): <b>/</b> focus search · <b>m</b> malicious · <b>s</b> suspicious · <b>a</b> all · <b>c</b> clear. Click any value (IP, user, Event&nbsp;ID, type) to add it as a filter; each active filter shows as a chip you can remove.</div>
+      </div></details>
+      <div class="card">
+        <div class="card-header"><h2>Hunt — build your own filters</h2></div>
+        <div class="hunt-presets"><span class="hp-label">Start here — one-click hunts:</span>
+          <button class="s-chip hp" data-preset="failed">🔑 Failed logins</button>
+          <button class="s-chip hp" data-preset="attacks">🚨 Attacks only</button>
+          <button class="s-chip hp" data-preset="review">⚠ Needs review</button>
+          <button class="s-chip hp" data-preset="external">🌐 External IPs</button>
+          <button class="s-chip hp" data-preset="powershell">🖥 PowerShell</button>
+          <button class="s-chip hp" data-preset="admin">👑 Admin activity</button>
+        </div>
+        <div class="hunt-bar">
+          <input id="huntText" placeholder="🔍 Keyword — any word from the event (e.g. failed, wget, /admin)…"/>
+          <input id="huntEid" placeholder="Event ID — e.g. 4625 = failed login…" inputmode="numeric" title="Common Windows event IDs: 4625 failed logon · 4624 logon · 4104 PowerShell script · 4688 process start · 7045 service installed. Sysmon: 1 process create · 3 network connect."/>
+          <input id="huntType" placeholder="Event type — e.g. powershell, bruteforce, logon…"/>
+          <input id="huntIp" placeholder="IP contains… (e.g. 185.62 or 10.0.0.5)"/>
+          <input id="huntActor" placeholder="User / actor contains… (e.g. admin, svc_)"/>
+          <select id="huntSev"><option value="">Any severity</option><option value="malicious">Malicious only</option><option value="suspicious">Suspicious only</option><option value="info">Info only</option></select>
+          <select id="huntSource"><option value="">Any source</option></select>
+          <input id="huntFrom" type="datetime-local" title="From time"/>
+          <input id="huntTo" type="datetime-local" title="To time"/>
+        </div>
+        <div class="hunt-hint">💡 Filters <b>combine</b> — an event must match <b>all</b> of them. Click any value in the results below (an IP, a user, an Event&nbsp;ID) to add it as a filter; remove it from the chips above the table.</div>
+        <div class="hunt-active" id="huntActive"></div>
+        <div class="hunt-chips" id="huntChips"></div>
+        <div class="hunt-stats" id="huntStats"></div>
+        <div class="hunt-actions">
+          <button class="btn btn-outline" id="huntExportCsv">⬇ Export CSV</button>
+          <button class="btn btn-outline" id="huntExportJson">⬇ Export JSON</button>
+          <button class="btn btn-outline" id="huntClear">✕ Clear all filters</button>
+          <span class="muted small" id="huntCount"></span>
+        </div>
+        <div class="hunt-results" id="huntResults"><p class="empty-note">Load logs, then filter here to investigate on your own.</p></div>
+      </div>
+    </div>
+
+
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalAuth"><div class="modal-box"><div class="modal-head"><span>🔐 Access control & encryption</span><button class="modal-x" data-close="modalAuth">✕</button></div><div class="modal-body"><div id="authPanel" style="padding:8px 2px;"></div></div></div></div>
+<div class="modal-overlay" id="modalSec"><div class="modal-box"><div class="modal-head"><span>🛡️ About security</span><button class="modal-x" data-close="modalSec">✕</button></div><div class="modal-body"><div class="sec-about">
+                  <p><b>CloudLog runs entirely in your browser as a single file.</b> That makes it private (no data leaves your machine) — but it also means the code is visible to anyone who has the file. This is true of every browser-based tool; the browser must read the code to run it, so the user can read it too.</p>
+                  <p><b>The login / lock screen is deterrence, not tamper-proof security.</b> It stops casual users, shared-machine access, and over-the-shoulder viewing. A technically skilled person with the file can open developer tools and bypass it. Obfuscation would only slow that down, never prevent it.</p>
+                  <p><b>The case encryption is the real guarantee.</b> Saved cases (<code>.clenc</code>) use AES-256-GCM with your access code. Even someone who reads all the code cannot open an encrypted case without the code. Codes are stored only as SHA-256 hashes.</p>
+                  <p><b>If you need enforced access control</b> (not just deterrence), host CloudLog behind a real login on a server rather than sharing the file — the browser code still isn't secret, but you decide who can reach it.</p>
+                  <p class="sec-tldr">In short: <b>lock = deterrence · encryption = real protection · host behind a login = enforced access.</b></p>
+                </div></div></div></div>
+<div class="modal-overlay" id="modalRule"><div class="modal-box"><div class="modal-head"><span>➕ Add your own detection rule</span><button class="modal-x" data-close="modalRule">✕</button></div><div class="modal-body"><p class="muted small" style="margin:8px 0;">Flag any event whose text (action + raw) matches your keyword or regex. Rules are saved with the case.</p>
+                <div class="rule-grid">
+                  <input type="text" id="crName" placeholder="Rule name (e.g. Crypto miner)"/>
+                  <input type="text" id="crPattern" placeholder="keyword or regex (e.g. xmrig|coinhive)"/>
+                  <select id="crSev"><option value="high">high</option><option value="medium" selected>medium</option><option value="low">low</option></select>
+                  <label class="rule-chk"><input type="checkbox" id="crRegex"/> regex</label>
+                  <button class="btn btn-outline" id="crTest" style="padding:6px 12px;font-size:12px;">Test</button>
+                  <button class="btn btn-primary" id="crAdd" style="padding:6px 12px;font-size:12px;">Add rule</button>
+                </div>
+                <div id="crMsg" class="muted small" style="margin-top:6px;"></div>
+                <div class="cr-toolbar">
+                  <span class="muted small" id="crSaved">0 rules saved</span>
+                  <span class="cr-tools">
+                    <button class="btn btn-outline" id="crExport" style="padding:5px 11px;font-size:12px;">⬇ Export rules &amp; IOCs</button>
+                    <label class="btn btn-outline" for="crImport" style="padding:5px 11px;font-size:12px;cursor:pointer;">⬆ Import<input type="file" id="crImport" accept=".json" style="display:none"/></label>
+                  </span>
+                </div>
+                <div id="crList" style="margin-top:8px;"></div></div></div></div>
+<div class="modal-overlay" id="modalIntel"><div class="modal-box"><div class="modal-head"><span>📥 Import intelligence — IOC list · allow-list · YARA</span><button class="modal-x" data-close="modalIntel">✕</button></div><div class="modal-body"><p class="muted small" style="margin:8px 0;">Match your own threat intel against the loaded logs. Saved inside the case file.</p>
+                <div class="intel-block">
+                  <label class="intel-label">Known-bad IOCs — IPs / domains / hashes, one per line (matches become malicious)</label>
+                  <textarea id="blText" class="intel-ta" placeholder="185.220.101.7&#10;evil-c2.ru&#10;44d88612fea8a8f36de82e1278abb02f"></textarea>
+                  <div class="intel-row"><label class="btn btn-outline intel-file">Import file<input type="file" id="blFile" hidden/></label><button class="btn btn-primary" id="blApply">Apply blocklist</button><span id="blMsg" class="muted small"></span></div>
+                </div>
+                <div class="intel-block">
+                  <label class="intel-label">Allow-list — known-good IPs / users / domains (suppresses false positives)</label>
+                  <textarea id="alText" class="intel-ta" placeholder="scanner.internal.example&#10;backup-svc&#10;198.51.100.5"></textarea>
+                  <div class="intel-row"><label class="btn btn-outline intel-file">Import file<input type="file" id="alFile" hidden/></label><button class="btn btn-primary" id="alApply">Apply allow-list</button><span id="alMsg" class="muted small"></span></div>
+                </div>
+                <div class="intel-block">
+                  <label class="intel-label">Asset criticality — hostname/IP,level (1-10), one per line. Auto-guessed from names (DC/prod/lab) if not listed.</label>
+                  <textarea id="acText" class="intel-ta" placeholder="DC01,10&#10;PROD-SQL01,9&#10;LAB-VM07,2"></textarea>
+                  <div class="intel-row"><label class="btn btn-outline intel-file">Import file<input type="file" id="acFile" hidden/></label><button class="btn btn-primary" id="acApply">Apply asset list</button><span id="acMsg" class="muted small"></span></div>
+                </div>
+                <div class="intel-block">
+                  <label class="intel-label">YARA rules — string-subset (strings: + any/all/N of them). Hex &amp; PE modules unsupported.</label>
+                  <textarea id="yaraText" class="intel-ta" placeholder="rule Webshell { strings: $a = &quot;eval(base64_decode&quot; nocase condition: any of them }"></textarea>
+                  <div class="intel-row"><label class="btn btn-outline intel-file">Import .yar<input type="file" id="yaraFile" hidden/></label><button class="btn btn-primary" id="yaraApply">Apply YARA</button><span id="yaraMsg" class="muted small"></span></div>
+                </div></div></div></div>
+<footer class="app-footer">
+  <span>CloudLog</span>
+  <span class="dot">·</span>
+  <span>Local-first security log triage — built by Praharsh</span>
+  <span class="dot">·</span>
+  <span>Runs 100% in your browser · heuristic assistant, not a SIEM replacement</span>
+</footer>
+<div id="lockScreen">
+  <div class="lock-box">
+    <div class="lock-logo">Cloud<span>Log</span></div>
+    <div class="lock-sub">This workspace is protected</div>
+    <input id="lockCode" type="password" placeholder="Enter your access code" autocomplete="off"/>
+    <button class="btn btn-primary" id="lockBtn">Unlock</button>
+    <div id="lockMsg" class="lock-msg"></div>
+    <div class="lock-note">Ask the admin for an access code. Saved cases are AES-256 encrypted.</div>
+  </div>
+</div>
+<div id="inspectorBackdrop"></div>
+<div id="inspector" role="dialog" aria-label="Event details">
+  <div class="insp-head"><span id="inspTitle">Event details</span><span id="inspClose" class="insp-close" title="Close (Esc)">✕</span></div>
+  <div id="inspBody"></div>
+</div>
+
+<script id="cloudlog-main">
+/*__CLOUDLOG_MODULES__*/
+</script>
+</body>
+</html>
